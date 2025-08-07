@@ -38,9 +38,11 @@ const int xAxisSpeedHoming = 4000; // Speed of X axis while moving
 const int xAxisAccelerationDrilling = 8000; // Acceleration of X axis while drilling
 const int xAxisAccelerationHoming = 4000; // Acceleration of X axis while moving
 int xAxisMoveDistance = -2600; // How far the X axis moves while drilling
-// WiFi credentials
-const char* ssid = "2400Wireless";
-const char* password = "lindafleming";
+// WiFi credentials (try two networks)
+const char* ssid1 = "2400Wireless";
+const char* password1 = "lindafleming";
+const char* ssid2 = "FactreeOfficeV2";
+const char* password2 = "Silvan3782";
 
 WebServer server(80);
 
@@ -249,21 +251,43 @@ void setup() {
   pinMode(z_axis_home, INPUT_PULLUP);
   pinMode(x_axis_home, INPUT_PULLUP);
   pinMode(drills, OUTPUT); // Set drill pin as output
-  z_axis_homing(); // Call the homing function to return to home position
-  x_axis_homing(); // Call the homing function to return to home position
 
-  // WiFi setup
+  // WiFi setup (try two networks)
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
+  Serial.print("Connecting to WiFi (Network 1): ");
+  WiFi.begin(ssid1, password1);
+  unsigned long startAttemptTime = millis();
+  const unsigned long wifiTimeout = 8000; // 8 seconds for first network
+  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < wifiTimeout) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println();
-  Serial.print("Connected! IP address: ");
-  Serial.println(WiFi.localIP());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println();
+    Serial.print("Connected to Network 1! IP address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println();
+    Serial.print("Network 1 failed, trying Network 2: ");
+    WiFi.begin(ssid2, password2);
+    startAttemptTime = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < wifiTimeout) {
+      delay(500);
+      Serial.print(".");
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println();
+      Serial.print("Connected to Network 2! IP address: ");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println();
+      Serial.println("Failed to connect to both WiFi networks!");
+    }
+  }
 
+  // Homing after WiFi connection
+  z_axis_homing(); // Call the homing function to return to home position
+  x_axis_homing(); // Call the homing function to return to home position
 
   // Web server routes
   server.on("/", handleRoot);

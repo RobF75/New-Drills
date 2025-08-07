@@ -200,8 +200,6 @@ void setup() {
   Serial.println("Web server started.");
 }
 
-xAxisStepper.moveTo(xAxisStepper.currentPosition() + x_axis_extra_move); // Move X axis further
-x_axis_homing(); // Call the homing function to return to home position
 void loop() {
   server.handleClient();
 
@@ -256,6 +254,7 @@ void loop() {
     while (xAxisStepper.distanceToGo() != 0) {
       xAxisStepper.run();
     }
+    xAxisStepper.moveTo(xAxisStepper.currentPosition() + x_axis_extra_move); // Move X axis further
     x_axis_homing(); // Call the homing function to return to home position
     rowCounter = 0; // Reset row counter after all rows are drilled
   }

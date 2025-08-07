@@ -63,11 +63,13 @@ jobs:
           '.version = $version | .firmware_url = $url | .build_date = $date' \
           version.json > version.json.tmp && mv version.json.tmp version.json
 
-    - name: Push changes
+    - name: Commit and push firmware and version.json
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+        git add firmware/firmware.bin version.json
+        git commit -m "Update firmware and version.json [CI]" || echo "Nothing to commit"
         git push
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -195,7 +195,7 @@ void setup() {
   server.on("/update", HTTP_POST, handleUpdate);
   server.on("/start", HTTP_POST, handleStart);
   server.begin();
-  Serial.println("Web server started.");
+  Serial.println("Web server started");
 }
 
 void loop() {

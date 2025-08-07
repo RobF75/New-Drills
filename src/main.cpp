@@ -167,7 +167,6 @@ void x_axis_homing() {
   Serial.println("X axis homed");
 }
 
-
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");

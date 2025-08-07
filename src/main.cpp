@@ -3,6 +3,8 @@
 #include <AccelStepper.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <HTTPClient.h>
+#include <Update.h>
 
 #define z_axis_step 32
 #define z_axis_dir 33
@@ -35,13 +37,16 @@ const int xAxisAccelerationDrilling = 8000; // Acceleration of X axis while dril
 const int xAxisAccelerationHoming = 4000; // Acceleration of X axis while moving
 int xAxisMoveDistance = -2600; // How far the X axis moves while drilling
 // WiFi credentials
-const char* ssid = "FactreeOfficeV2";
-const char* password = "Factree3782";
+const char* ssid = "2400Wireless";
+const char* password = "lindafleming";
 
 WebServer server(80);
 
 // Web start flag
 volatile bool webStartFlag = false;
+
+// Current firmware version
+#define CURRENT_FIRMWARE_VERSION "1.0.1"
 
 // HTML page
 String getHTML() {
@@ -55,8 +60,83 @@ String getHTML() {
   html += "<form action='/start' method='POST' style='margin-top:20px;'>";
   html += "<input type='submit' value='Start Drilling'>";
   html += "</form>";
+  html += "<form action='/ota' method='POST' style='margin-top:20px;'>";
+  html += "<input type='submit' value='Update Firmware'>";
+  html += "</form>";
   html += "</body></html>";
   return html;
+}
+// OTA update handler
+void handleOTA() {
+  String versionUrl = "https://raw.githubusercontent.com/RobF75/New-Drills/main/version.json";
+  HTTPClient http;
+  Serial.println("Checking for firmware update...");
+  http.begin(versionUrl);
+  int httpCode = http.GET();
+  Serial.print("HTTP code for version.json: ");
+  Serial.println(httpCode);
+  if (httpCode == 200) {
+    String payload = http.getString();
+    Serial.println("version.json: " + payload);
+    int vIdx = payload.indexOf("\"version\":");
+    int vStart = payload.indexOf('"', vIdx + 10) + 1;
+    int vEnd = payload.indexOf('"', vStart);
+    String remoteVersion = payload.substring(vStart, vEnd);
+    Serial.println("Remote version: " + remoteVersion);
+    if (String(CURRENT_FIRMWARE_VERSION) == remoteVersion) {
+      server.send(200, "text/plain", "Firmware is up to date.");
+      http.end();
+      return;
+    }
+    int urlIdx = payload.indexOf("\"firmware_url\":");
+    int urlStart = payload.indexOf('"', urlIdx + 15) + 1;
+    int urlEnd = payload.indexOf('"', urlStart);
+    String firmwareUrl = payload.substring(urlStart, urlEnd);
+    Serial.println("Firmware URL: " + firmwareUrl);
+    http.end();
+    // Download and update firmware
+    WiFiClient client;
+    http.begin(firmwareUrl);
+    int fwCode = http.GET();
+    if (fwCode == 200) {
+      int contentLength = http.getSize();
+      bool canBegin = Update.begin(contentLength);
+      if (canBegin) {
+        Serial.println("Begin OTA update...");
+        size_t written = Update.writeStream(http.getStream());
+        if (written == contentLength) {
+          Serial.println("Written : " + String(written) + " successfully");
+        } else {
+          Serial.println("Written only : " + String(written) + "/" + String(contentLength) + ". Retry?");
+        }
+        if (Update.end()) {
+          if (Update.isFinished()) {
+            Serial.println("Update successfully completed. Rebooting.");
+            server.send(200, "text/plain", "Update successful. Rebooting...");
+            delay(1000);
+            ESP.restart();
+          } else {
+            Serial.println("Update not finished. Something went wrong.");
+            server.send(200, "text/plain", "Update not finished. Something went wrong.");
+          }
+        } else {
+          Serial.println("Error Occurred. Error #: " + String(Update.getError()));
+          server.send(200, "text/plain", "Update failed. Error #: " + String(Update.getError()));
+        }
+      } else {
+        Serial.println("Not enough space to begin OTA");
+        server.send(200, "text/plain", "Not enough space to begin OTA");
+      }
+    } else {
+      Serial.println("Could not download firmware");
+      server.send(200, "text/plain", "Could not download firmware");
+    }
+    http.end();
+  } else {
+    Serial.println("Could not fetch version.json");
+    server.send(200, "text/plain", "Could not fetch version.json");
+    http.end();
+  }
 }
 
 void handleRoot() {
@@ -190,11 +270,12 @@ void setup() {
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
 
-  
+
   // Web server routes
   server.on("/", handleRoot);
   server.on("/update", HTTP_POST, handleUpdate);
   server.on("/start", HTTP_POST, handleStart);
+  server.on("/ota", HTTP_POST, handleOTA);
   server.begin();
   Serial.println("Web server started");
 }

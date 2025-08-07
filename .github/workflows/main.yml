@@ -51,6 +51,16 @@ jobs:
         }
         EOF
 
+    - name: Update root version.json
+      run: |
+        TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        jq \
+          --arg version "${{ env.VERSION }}" \
+          --arg url "https://raw.githubusercontent.com/${{ github.repository }}/main/firmware/firmware.bin" \
+          --arg date "$TIMESTAMP" \
+          '.version = $version | .firmware_url = $url | .build_date = $date' \
+          version.json > version.json.tmp && mv version.json.tmp version.json
+
     - name: Commit and push firmware and version.json
       run: |
         git config user.name "github-actions"

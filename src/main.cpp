@@ -6,6 +6,8 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include <webpage.h>
+#include <version.h>
+
 
 
 #define z_axis_step 32
@@ -49,8 +51,7 @@ WebServer server(80);
 // Web start flag
 volatile bool webStartFlag = false;
 
-// Current firmware version
-#define CURRENT_FIRMWARE_VERSION "1.0.1"
+
 
 // HTML page from include/webpage.h and style.h
 String getHTML() {

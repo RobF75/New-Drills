@@ -29,6 +29,11 @@ jobs:
       run: |
         pip install platformio
 
+    - name: Generate version.h from version.json
+      run: |
+        VERSION=$(jq -r .version version.json)
+        echo "#define CURRENT_FIRMWARE_VERSION \"$VERSION\"" > include/version.h
+
     - name: Build firmware
       run: |
         platformio run

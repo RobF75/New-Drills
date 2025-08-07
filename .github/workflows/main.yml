@@ -1,0 +1,60 @@
+name: Build and Publish ESP32 Firmware
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'platformio.ini'
+      - 'VERSION'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install PlatformIO
+      run: |
+        pip install platformio
+
+    - name: Build firmware
+      run: |
+        platformio run
+
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION=$(cat VERSION)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "::set-output name=version::$VERSION"
+
+    - name: Copy firmware and update version.json
+      run: |
+        mkdir -p firmware
+        cp .pio/build/*/firmware.bin firmware/firmware.bin
+        TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        cat <<EOF > firmware/version.json
+        {
+          "version": "${{ env.VERSION }}",
+          "firmware_url": "https://raw.githubusercontent.com/${{ github.repository }}/main/firmware/firmware.bin",
+          "build_date": "$TIMESTAMP"
+        }
+        EOF
+
+    - name: Commit and push firmware and version.json
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add firmware/firmware.bin firmware/version.json
+        git commit -m "Add firmware ${{ env.VERSION }}"
+        git push

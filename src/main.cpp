@@ -24,18 +24,18 @@ const int waitTime = 100;
 int zAxisMoveDownDistance = 5000; // How far the Z axis moves down while drilling 
 const int zAxisSpeedDown = 2000; // Speed of Z axis while drilling
 const int zAxisSpeedUp = 2000; // Speed of Z axis while moving up
-const int zAxisAccelerationDown = 2000; // Acceleration of Z axis while drilling
-const int zAxisAccelerationUp = 2000; // Acceleration of Z axis while moving up
+const int zAxisAccelerationDown = 5000; // Acceleration of Z axis while drilling
+const int zAxisAccelerationUp = 5000; // Acceleration of Z axis while moving up
 
 // X axis parameters
 const int xAxisSpeedDrilling = 2000; // Speed of X axis while drilling
-const int xAxisSpeedHoming = 5000; // Speed of X axis while moving
-const int xAxisAccelerationDrilling = 2000; // Acceleration of X axis while drilling
-const int xAxisAccelerationHoming = 2000; // Acceleration of X axis while moving
+const int xAxisSpeedHoming = 4000; // Speed of X axis while moving
+const int xAxisAccelerationDrilling = 8000; // Acceleration of X axis while drilling
+const int xAxisAccelerationHoming = 4000; // Acceleration of X axis while moving
 int xAxisMoveDistance = -2600; // How far the X axis moves while drilling
 // WiFi credentials
-const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
+const char* ssid = "FactreeOfficeV2";
+const char* password = "Factree3782";
 
 WebServer server(80);
 

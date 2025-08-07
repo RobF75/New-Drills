@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#include <Accelstepper.h>
+#include <AccelStepper.h>
 #include <WiFi.h>
 #include <WebServer.h>
 
@@ -14,6 +14,7 @@
 #define x_axis_home 15
 
 #define start_button 4
+
 
 AccelStepper zAxisStepper(AccelStepper::DRIVER, z_axis_step, z_axis_dir);
 AccelStepper xAxisStepper(AccelStepper::DRIVER, x_axis_step, x_axis_dir);

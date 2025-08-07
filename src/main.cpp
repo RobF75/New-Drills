@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <HTTPClient.h>
 #include <Update.h>
+#include <webpage.h>
 
 
 #define z_axis_step 32
@@ -49,22 +50,13 @@ volatile bool webStartFlag = false;
 // Current firmware version
 #define CURRENT_FIRMWARE_VERSION "1.0.1"
 
-// HTML page
+// HTML page from include/webpage.h and style.h
 String getHTML() {
-  String html = "<html><head><title>Drill Control</title></head><body>";
-  html += "<h2>Drill Control Panel</h2>";
-  html += "<form action='/update' method='POST'>";
-  html += "Z Axis Move Down Distance: <input type='number' name='z' value='" + String(zAxisMoveDownDistance) + "'><br>";
-  html += "X Axis Move Distance: <input type='number' name='x' value='" + String(xAxisMoveDistance) + "'><br>";
-  html += "<input type='submit' value='Update Values'>";
-  html += "</form>";
-  html += "<form action='/start' method='POST' style='margin-top:20px;'>";
-  html += "<input type='submit' value='Start Drilling'>";
-  html += "</form>";
-  html += "<form action='/ota' method='POST' style='margin-top:20px;'>";
-  html += "<input type='submit' value='Update Firmware'>";
-  html += "</form>";
-  html += "</body></html>";
+  String html(DRILL_CONTROL_HTML);
+  html.replace("%ZAXIS%", String(zAxisMoveDownDistance));
+  html.replace("%XAXIS%", String(xAxisMoveDistance));
+  html.replace("%STYLE%", String(DRILL_CONTROL_STYLE));
+  html.replace("%VERSION%", String(CURRENT_FIRMWARE_VERSION));
   return html;
 }
 // OTA update handler
@@ -113,7 +105,8 @@ void handleOTA() {
         if (Update.end()) {
           if (Update.isFinished()) {
             Serial.println("Update successfully completed. Rebooting.");
-            server.send(200, "text/plain", "Update successful. Rebooting...");
+            String redirectHtml = "<html><head><meta http-equiv='refresh' content='1;url=/'></head><body>Update successful. Rebooting...</body></html>";
+            server.send(200, "text/html", redirectHtml);
             delay(1000);
             ESP.restart();
           } else {

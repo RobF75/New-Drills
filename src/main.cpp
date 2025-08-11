@@ -217,7 +217,7 @@ void z_axis_homing() {
 
   zAxisStepper.setMaxSpeed(zAxisSpeedUp);
   zAxisStepper.setAcceleration(zAxisAccelerationUp);
-  zAxisStepper.moveTo(-1000000);  // Move down toward limit switch
+  zAxisStepper.moveTo(-1000000);  // Move up toward limit switch
 
   while (!isZLimitTriggered()) {
     zAxisStepper.run();
@@ -233,7 +233,7 @@ void x_axis_homing() {
 
   xAxisStepper.setMaxSpeed(xAxisSpeedHoming);
   xAxisStepper.setAcceleration(xAxisAccelerationHoming);
-  xAxisStepper.moveTo(100000);  // Move left toward limit switch
+  xAxisStepper.moveTo(100000);  // Move toward limit switch
 
   while (!isXLimitTriggered()) {
     xAxisStepper.run();

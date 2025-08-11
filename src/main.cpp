@@ -38,13 +38,13 @@ const int zAxisAccelerationUp = 5000; // Acceleration of Z axis while moving up
 const int xAxisSpeedDrilling = 2000; // Speed of X axis while drilling
 const int xAxisSpeedHoming = 4000; // Speed of X axis while moving
 const int xAxisAccelerationDrilling = 8000; // Acceleration of X axis while drilling
-const int xAxisAccelerationHoming = 4000; // Acceleration of X axis while moving
+const int xAxisAccelerationHoming = 000; // Acceleration of X axis while moving
 int xAxisMoveDistance = -2600; // How far the X axis moves while drilling
 // WiFi credentials (try two networks)
 const char* ssid1 = "2400Wireless";
 const char* password1 = "lindafleming";
 const char* ssid2 = "FactreeOfficeV2";
-const char* password2 = "Silvan3782";
+const char* password2 = "Factree3782";
 
 WebServer server(80);
 
@@ -204,7 +204,7 @@ bool isStartButtonPressed() {
 }
 // Simple check for Z axis limit switch
 bool isZLimitTriggered() {
-  return digitalRead(z_axis_home) == LOW;
+  return digitalRead(z_axis_home) == HIGH;
 }
 
 // Simple check for X axis limit switch

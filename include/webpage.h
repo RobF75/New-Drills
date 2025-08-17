@@ -32,6 +32,18 @@ const char DRILL_CONTROL_HTML[] = R"rawliteral(
     <div style='text-align:center; margin-bottom:12px;'>
       <span id="startbtn-status">%STARTBTN%</span>
     </div>
+    <div>Pins Status:
+      <ul>
+        <li>Z Axis Step Pin: %ZAXIS_STEP%</li>
+        <li>Z Axis Dir Pin: %ZAXIS_DIR%</li>
+        <li>Z Axis Home Pin: %ZAXIS_HOME%</li>
+        <li>Drills Pin: %DRILLS%</li>
+        <li>X Axis Step Pin: %XAXIS_STEP%</li>
+        <li>X Axis Dir Pin: %XAXIS_DIR%</li>
+        <li>X Axis Home Pin: %XAXIS_HOME%</li>
+        <li>Start Button Pin: %START_BUTTON%</li>
+      </ul>
+    </div>
     <script>
     function updateStatus() {
       fetch('/status').then(r => r.text()).then(txt => {

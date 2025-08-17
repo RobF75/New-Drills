@@ -8,16 +8,15 @@
 #include <webpage.h>
 #include <version.h>
 
+// Pin Definitions 
+#define z_axis_step 5
+#define z_axis_dir 6
+#define z_axis_home 7
+#define drills 8
 
-
-#define z_axis_step 32
-#define z_axis_dir 33
-#define z_axis_home 5
-#define drills 21
-
-#define x_axis_step 25
-#define x_axis_dir 26
-#define x_axis_home 15
+#define x_axis_step 9
+#define x_axis_dir 10
+#define x_axis_home 11
 
 #define start_button 4
 
@@ -26,6 +25,7 @@ AccelStepper zAxisStepper(AccelStepper::DRIVER, z_axis_step, z_axis_dir);
 AccelStepper xAxisStepper(AccelStepper::DRIVER, x_axis_step, x_axis_dir);
 
 const int waitTime = 100;
+String startButtonStatus = "<span style='color:#888;'>Not pressed</span>"; // Initial status of the start button
 
 // Z axis parameters
 int zAxisMoveDownDistance = 5000; // How far the Z axis moves down while drilling 
@@ -34,12 +34,13 @@ const int zAxisSpeedUp = 2000; // Speed of Z axis while moving up
 const int zAxisAccelerationDown = 5000; // Acceleration of Z axis while drilling
 const int zAxisAccelerationUp = 5000; // Acceleration of Z axis while moving up
 
-// X axis parameters
+// // X axis parameters
 const int xAxisSpeedDrilling = 2000; // Speed of X axis while drilling
 const int xAxisSpeedHoming = 4000; // Speed of X axis while moving
-const int xAxisAccelerationDrilling = 8000; // Acceleration of X axis while drilling
-const int xAxisAccelerationHoming = 4000; // Acceleration of X axis while moving
-int xAxisMoveDistance = -2960; // How far the X axis moves while drilling
+const int xAxisAccelerationDrilling = 2000; // Acceleration of X axis while drilling
+const int xAxisAccelerationHoming = 2000; // Acceleration of X axis while moving
+int xAxisMoveDistance = -2820; // How far the X axis moves while drilling
+
 // WiFi credentials (try two networks)
 const char* ssid1 = "2400Wireless";
 const char* password1 = "lindafleming";
@@ -60,6 +61,7 @@ String getHTML() {
   html.replace("%XAXIS%", String(xAxisMoveDistance));
   html.replace("%STYLE%", String(DRILL_CONTROL_STYLE));
   html.replace("%VERSION%", String(CURRENT_FIRMWARE_VERSION));
+  html.replace("%STARTBTN%", startButtonStatus);
   return html;
 }
 // OTA update handler
@@ -95,6 +97,9 @@ void handleOTA() {
     http.begin(firmwareUrl);
     int fwCode = http.GET();
     if (fwCode == 200) {
+  server.onNotFound([]() {
+    server.send(404, "text/plain", "Not found");
+  });
       int contentLength = http.getSize();
       bool canBegin = Update.begin(contentLength);
       if (canBegin) {
@@ -179,12 +184,11 @@ int buttonState = HIGH;                    // Current stable state of the button
 bool isStartButtonPressed() {
   // Read the current state of the button
   int reading = digitalRead(start_button);
-  
+  static unsigned long lastPressTime = 0;
   // If the button state changed, reset the debounce timer
   if (reading != lastButtonState) {
     lastDebounceTime = millis();
   }
-  
   // Check if enough time has passed since the last change
   if ((millis() - lastDebounceTime) > debounceDelay) {
     // If the button state has changed, update buttonState
@@ -193,65 +197,70 @@ bool isStartButtonPressed() {
       
       // Return true only on a new LOW (pressed) state
       if (buttonState == LOW) {
+        lastPressTime = millis();
+        startButtonStatus = "<span style='color:green; background-color:yellow;'>Pressed</span>";
         return true;
       }
     }
   }
-  
+  // Show "Pressed" for 1 second after press
+  if (millis() - lastPressTime > 1000) {
+    startButtonStatus = "<span style='color:#888;'>Not pressed</span>";
+  }
   // Save the current reading for the next loop
   lastButtonState = reading;
   return false;
 }
 // Simple check for Z axis limit switch
-bool isZLimitTriggered() {
-  return digitalRead(z_axis_home) == LOW;
-}
+// bool isZLimitTriggered() {
+//   return digitalRead(z_axis_home) == LOW;
+// }
 
-// Simple check for X axis limit switch
-bool isXLimitTriggered() {
-  return digitalRead(x_axis_home) == LOW;
-}
+// // Simple check for X axis limit switch
+// bool isXLimitTriggered() {
+//   return digitalRead(x_axis_home) == LOW;
+// }
 
-void z_axis_homing() {
-  Serial.println("Z homing started");
+// void z_axis_homing() {
+//   Serial.println("Z homing started");
 
-  zAxisStepper.setMaxSpeed(zAxisSpeedUp);
-  zAxisStepper.setAcceleration(zAxisAccelerationUp);
-  zAxisStepper.moveTo(-1000000);  // Move up toward limit switch
+//   zAxisStepper.setMaxSpeed(zAxisSpeedUp);
+//   zAxisStepper.setAcceleration(zAxisAccelerationUp);
+//   zAxisStepper.moveTo(-1000000);  // Move up toward limit switch
 
-  while (!isZLimitTriggered()) {
-    zAxisStepper.run();
-  }
+//   while (!isZLimitTriggered()) {
+//     zAxisStepper.run();
+//   }
 
-  zAxisStepper.stop();
-  zAxisStepper.setCurrentPosition(0);
-  Serial.println("Z axis homed");
-}
+//   zAxisStepper.stop();
+//   zAxisStepper.setCurrentPosition(0);
+//   Serial.println("Z axis homed");
+// }
 
-void x_axis_homing() {
-  Serial.println("X homing started");
+// void x_axis_homing() {
+//   Serial.println("X homing started");
 
-  xAxisStepper.setMaxSpeed(xAxisSpeedHoming);
-  xAxisStepper.setAcceleration(xAxisAccelerationHoming);
-  xAxisStepper.moveTo(100000);  // Move toward limit switch
+//   xAxisStepper.setMaxSpeed(xAxisSpeedHoming);
+//   xAxisStepper.setAcceleration(xAxisAccelerationHoming);
+//   xAxisStepper.moveTo(100000);  // Move toward limit switch
 
-  while (!isXLimitTriggered()) {
-    xAxisStepper.run();
-  }
+//   while (!isXLimitTriggered()) {
+//     xAxisStepper.run();
+//   }
 
-  xAxisStepper.stop();
-  xAxisStepper.setCurrentPosition(0);
-  Serial.println("X axis homed");
-}
+//   xAxisStepper.stop();
+//   xAxisStepper.setCurrentPosition(0);
+//   Serial.println("X axis homed");
+// }
 
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");
   pinMode(start_button, INPUT_PULLUP); // Set start button pin as input with pull-up resistor
-  pinMode(z_axis_home, INPUT_PULLUP);
-  pinMode(x_axis_home, INPUT_PULLUP);
-  pinMode(drills, OUTPUT); // Set drill pin as output
+  // pinMode(z_axis_home, INPUT_PULLUP);
+  // pinMode(x_axis_home, INPUT_PULLUP);
+  // pinMode(drills, OUTPUT); // Set drill pin as output
 
   // WiFi setup (try two networks)
   WiFi.mode(WIFI_STA);
@@ -285,76 +294,89 @@ void setup() {
       Serial.println("Failed to connect to both WiFi networks!");
     }
   }
-
+  delay(100);
   // Homing after WiFi connection
-  z_axis_homing(); // Call the homing function to return to home position
-  x_axis_homing(); // Call the homing function to return to home position
+  // z_axis_homing(); // Call the homing function to return to home position
+  // delay(100);
+  // x_axis_homing(); // Call the homing function to return to home position
 
   // Web server routes
   server.on("/", handleRoot);
   server.on("/update", HTTP_POST, handleUpdate);
-  server.on("/start", HTTP_POST, handleStart);
   server.on("/ota", HTTP_POST, handleOTA);
+  server.on("/status", []() {
+    server.send(200, "text/plain", startButtonStatus);
+  });
+  server.onNotFound([]() {
+    server.send(404, "text/plain", "Not found");
+  });
   server.begin();
   Serial.println("Web server started");
 }
 
 void loop() {
   server.handleClient();
-
-  // Check for start button press with debounce or web start
-  bool shouldStart = isStartButtonPressed() || webStartFlag;
-  if (shouldStart) {
-    webStartFlag = false;
-    while (rowCounter < 12) {
-      Serial.println("Start");
-      // Turn on drill
-      digitalWrite(drills, HIGH);
-      Serial.println("Drills On");
-      // Configure Z axis for downward movement
-      zAxisStepper.setMaxSpeed(zAxisSpeedDown);
-      zAxisStepper.setAcceleration(zAxisAccelerationDown);
-      zAxisStepper.moveTo(zAxisMoveDownDistance);
-      // Execute downward movement
-      while (zAxisStepper.distanceToGo() != 0) {
-        zAxisStepper.run();
-      }
-      // Move Z axis back up a little bit before turning drills off
-      const int zAxisRetractDistance = 4000; // Adjust this value as needed
-      zAxisStepper.moveTo(zAxisStepper.currentPosition() - zAxisRetractDistance);
-      while (zAxisStepper.distanceToGo() != 0) {
-        zAxisStepper.run();
-      }
-      digitalWrite(drills, LOW); // Now turn off drills
-      delay(200);
-      z_axis_homing(); 
-      // Turn off drill
-      Serial.println("Drills Off");
-      // Configure X axis for drilling movement
-      xAxisStepper.setMaxSpeed(xAxisSpeedDrilling);
-      xAxisStepper.setAcceleration(xAxisAccelerationDrilling);
-      xAxisStepper.moveTo((rowCounter + 1) * xAxisMoveDistance);
-      while (xAxisStepper.distanceToGo() != 0) {
-        xAxisStepper.run(); // Execute drilling movement
-      }
-      // Increment row counter
-      rowCounter++;
-      Serial.print("Row counter: ");
-      Serial.println(rowCounter);
-      // Optional delay to debounce button
-      delay(waitTime);
-    }
-    Serial.println("All rows drilled, returning to home position.");
-    z_axis_homing(); // Call the homing function to return to home position
-    const int x_axis_extra_move = -4000; // Move X axis a bit more to ensure it is clear of the drilling area
-    xAxisStepper.setMaxSpeed(xAxisSpeedHoming);
-    xAxisStepper.setAcceleration(xAxisAccelerationHoming);
-    xAxisStepper.moveTo(xAxisStepper.currentPosition() + x_axis_extra_move); // Move X axis further
-    while (xAxisStepper.distanceToGo() != 0) {
-      xAxisStepper.run();
-    }
-    xAxisStepper.moveTo(xAxisStepper.currentPosition() + x_axis_extra_move); // Move X axis further
-    x_axis_homing(); // Call the homing function to return to home position
-    rowCounter = 0; // Reset row counter after all rows are drilled
+  // New If start button is pressed then write to the console start pressed and update the webpage
+  if (digitalRead(start_button) == LOW) {
+    Serial.println("Start button pressed");
+    startButtonStatus = "<span style='color:#4CAF50;'>Pressed</span>";
+  } else {
+    startButtonStatus = "<span style='color:#888;'>Not pressed</span>";
   }
+
+//   // Check for start button press with debounce or web start
+// bool shouldStart = isStartButtonPressed() || webStartFlag;
+//   if (shouldStart) {
+//     webStartFlag = false;
+//     while (rowCounter < 12) {
+//       Serial.println("Start");
+//       // Turn on drill
+//       digitalWrite(drills, HIGH);
+//       Serial.println("Drills On");
+//       // Configure Z axis for downward movement
+//       zAxisStepper.setMaxSpeed(zAxisSpeedDown);
+//       zAxisStepper.setAcceleration(zAxisAccelerationDown);
+//       zAxisStepper.moveTo(zAxisMoveDownDistance);
+//       // Execute downward movement
+//       while (zAxisStepper.distanceToGo() != 0) {
+//         zAxisStepper.run();
+//       }
+//       // Move Z axis back up a little bit before turning drills off
+//       const int zAxisRetractDistance = 4000; // Adjust this value as needed
+//       zAxisStepper.moveTo(zAxisStepper.currentPosition() - zAxisRetractDistance);
+//       while (zAxisStepper.distanceToGo() != 0) {
+//         zAxisStepper.run();
+//       }
+//       digitalWrite(drills, LOW); // Now turn off drills
+//       delay(200);
+//       z_axis_homing(); 
+//       // Turn off drill
+//       Serial.println("Drills Off");
+//       // Configure X axis for drilling movement
+//       xAxisStepper.setMaxSpeed(xAxisSpeedDrilling);
+//       xAxisStepper.setAcceleration(xAxisAccelerationDrilling);
+//       xAxisStepper.moveTo((rowCounter + 1) * xAxisMoveDistance);
+//       while (xAxisStepper.distanceToGo() != 0) {
+//         xAxisStepper.run(); // Execute drilling movement
+//       }
+//       // Increment row counter
+//       rowCounter++;
+//       Serial.print("Row counter: ");
+//       Serial.println(rowCounter);
+//       // Optional delay to debounce button
+//       delay(waitTime);
+//     }
+//     Serial.println("All rows drilled, returning to home position.");
+//     z_axis_homing(); // Call the homing function to return to home position
+//     const int x_axis_extra_move = -4000; // Move X axis a bit more to ensure it is clear of the drilling area
+//     xAxisStepper.setMaxSpeed(xAxisSpeedHoming);
+//     xAxisStepper.setAcceleration(xAxisAccelerationHoming);
+//     xAxisStepper.moveTo(xAxisStepper.currentPosition() + x_axis_extra_move); // Move X axis further
+//     while (xAxisStepper.distanceToGo() != 0) {
+//       xAxisStepper.run();
+//     }
+//     xAxisStepper.moveTo(xAxisStepper.currentPosition() + x_axis_extra_move); // Move X axis further
+//     x_axis_homing(); // Call the homing function to return to home position
+//     rowCounter = 0; // Reset row counter after all rows are drilled
+//   }
 }

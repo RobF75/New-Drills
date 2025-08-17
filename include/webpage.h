@@ -29,6 +29,17 @@ const char DRILL_CONTROL_HTML[] = R"rawliteral(
     <form action='/ota' method='POST' style='margin-top:20px;'>
       <input type='submit' value='Update Firmware'>
     </form>
+    <div style='text-align:center; margin-bottom:12px;'>
+      <span id="startbtn-status">%STARTBTN%</span>
+    </div>
+    <script>
+    function updateStatus() {
+      fetch('/status').then(r => r.text()).then(txt => {
+        document.getElementById('startbtn-status').innerHTML = txt;
+      });
+    }
+    setInterval(updateStatus, 1000);
+    </script>
   </div>
 </body>
 </html>

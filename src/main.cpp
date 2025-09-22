@@ -1,3 +1,6 @@
+#define SDA_PIN 42
+#define SCL_PIN 41
+#define DRILL_RELAY_BIT 0
 #include <Arduino.h>
 
 #include <AccelStepper.h>
@@ -12,7 +15,51 @@
 #define z_axis_step 5
 #define z_axis_dir 6
 #define z_axis_home 7
-#define drills 8
+
+
+#include <Wire.h>
+#define TCA9554_ADDRESS 0x38
+#define TCA9554_INPUT_REG    0x00
+#define TCA9554_OUTPUT_REG   0x01
+#define TCA9554_POLARITY_REG 0x02
+#define TCA9554_CONFIG_REG   0x03
+
+uint8_t tca9554_address = TCA9554_ADDRESS;
+
+void scanI2C() {
+  for (uint8_t i = 1; i < 127; i++) {
+    Wire.beginTransmission(i);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("Found I2C device at 0x");
+      Serial.println(i, HEX);
+    }
+  }
+}
+
+uint8_t findTCA9554() {
+  for (uint8_t addr = 0x20; addr <= 0x3F; addr++) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) {
+      Wire.beginTransmission(addr);
+      Wire.write(TCA9554_INPUT_REG);
+      if (Wire.endTransmission() == 0) {
+        return addr;
+      }
+    }
+  }
+  return 0;
+}
+
+uint8_t relayState = 0xFF; // All relays off (active low)
+
+void setRelay(uint8_t relay, bool on) {
+  if (on) relayState |= (1 << relay); // 1=on
+  else relayState &= ~(1 << relay);  // 0=off
+  Wire.beginTransmission(tca9554_address);
+  Wire.write(TCA9554_OUTPUT_REG);
+  Wire.write(relayState);
+  Wire.endTransmission();
+}
 
 #define x_axis_step 9
 #define x_axis_dir 10
@@ -211,15 +258,16 @@ bool isStartButtonPressed() {
   lastButtonState = reading;
   return false;
 }
-// Simple check for Z axis limit switch
-// bool isZLimitTriggered() {
-//   return digitalRead(z_axis_home) == LOW;
-// }
 
-// // Simple check for X axis limit switch
-// bool isXLimitTriggered() {
-//   return digitalRead(x_axis_home) == LOW;
-// }
+// Simple check for Z axis limit switch
+bool isZLimitTriggered() {
+  return digitalRead(z_axis_home) == LOW;
+}
+
+// Simple check for X axis limit switch
+bool isXLimitTriggered() {
+  return digitalRead(x_axis_home) == LOW;
+}
 
 // void z_axis_homing() {
 //   Serial.println("Z homing started");
@@ -257,10 +305,45 @@ bool isStartButtonPressed() {
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting up...");
-  pinMode(start_button, INPUT_PULLUP); // Set start button pin as input with pull-up resistor
-  // pinMode(z_axis_home, INPUT_PULLUP);
-  // pinMode(x_axis_home, INPUT_PULLUP);
-  // pinMode(drills, OUTPUT); // Set drill pin as output
+  pinMode(start_button, INPUT_PULLUP);
+
+  Serial.println("Initializing I2C...");
+  Wire.begin(SDA_PIN, SCL_PIN);
+  delay(100);
+  Serial.println("Scanning I2C devices...");
+  scanI2C();
+  tca9554_address = findTCA9554();
+  if (tca9554_address == 0) {
+    Serial.println("ERROR: TCA9554 not found at any expected address!");
+    Serial.println("Please check I2C connections and device address.");
+    return;
+  }
+  Serial.print("TCA9554 found at address: 0x");
+  Serial.println(tca9554_address, HEX);
+
+  // Configure TCA9554: all pins as outputs
+  Wire.beginTransmission(tca9554_address);
+  Wire.write(TCA9554_CONFIG_REG);
+  Wire.write(0x00); // All pins as outputs
+  uint8_t result1 = Wire.endTransmission();
+  if (result1 == 0) {
+    Serial.println("TCA9554 configuration successful");
+  } else {
+    Serial.print("TCA9554 configuration failed with error: ");
+    Serial.println(result1);
+  }
+  // Set all relays OFF
+  relayState = 0x00;
+  Wire.beginTransmission(tca9554_address);
+  Wire.write(TCA9554_OUTPUT_REG);
+  Wire.write(relayState); // All relays OFF
+  uint8_t result2 = Wire.endTransmission();
+  if (result2 == 0) {
+    Serial.println("TCA9554 relay initialization successful");
+  } else {
+    Serial.print("TCA9554 relay initialization failed with error: ");
+    Serial.println(result2);
+  }
 
   // WiFi setup (try two networks)
   WiFi.mode(WIFI_STA);
@@ -304,6 +387,7 @@ void setup() {
   server.on("/", handleRoot);
   server.on("/update", HTTP_POST, handleUpdate);
   server.on("/ota", HTTP_POST, handleOTA);
+  server.on("/start", HTTP_POST, handleStart); // <-- Add this line
   server.on("/status", []() {
     server.send(200, "text/plain", startButtonStatus);
   });
@@ -387,8 +471,8 @@ void loop() {
 
     case DRILL_START:
       Serial.println("Start");
-      digitalWrite(drills, HIGH);
-      Serial.println("Drills On");
+  setRelay(DRILL_RELAY_BIT, true);
+  Serial.println("Drills On (relay)");
       zAxisStepper.setMaxSpeed(zAxisSpeedDown);
       zAxisStepper.setAcceleration(zAxisAccelerationDown);
       zAxisStepper.moveTo(zAxisMoveDownDistance);
@@ -406,8 +490,8 @@ void loop() {
     case DRILL_Z_RETRACT:
       zAxisStepper.run();
       if (zAxisStepper.distanceToGo() == 0) {
-        digitalWrite(drills, LOW);
-        Serial.println("Drills Off");
+  setRelay(DRILL_RELAY_BIT, false);
+  Serial.println("Drills Off (relay)");
         drillDelayStart = millis();
         drillState = DRILL_Z_HOME_START;
       }

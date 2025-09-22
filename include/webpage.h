@@ -32,6 +32,9 @@ const char DRILL_CONTROL_HTML[] = R"rawliteral(
     <div style='text-align:center; margin-bottom:12px;'>
       <span id="startbtn-status">%STARTBTN%</span>
     </div>
+    <div style='text-align:center; margin-bottom:12px;'>
+      <b>Machine Status:</b> <span id="machine-status">Idle</span>
+    </div>
     <div>Pins Status:
       <ul>
         <li>Z Axis Step Pin: %ZAXIS_STEP%</li>
@@ -48,6 +51,9 @@ const char DRILL_CONTROL_HTML[] = R"rawliteral(
     function updateStatus() {
       fetch('/status').then(r => r.text()).then(txt => {
         document.getElementById('startbtn-status').innerHTML = txt;
+      });
+      fetch('/machinestatus').then(r => r.text()).then(txt => {
+        document.getElementById('machine-status').innerHTML = txt;
       });
     }
     setInterval(updateStatus, 1000);

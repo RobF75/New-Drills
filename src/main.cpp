@@ -1,8 +1,4 @@
-#define SDA_PIN 42
-#define SCL_PIN 41
-#define DRILL_RELAY_BIT 0
 #include <Arduino.h>
-
 #include <AccelStepper.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -11,11 +7,19 @@
 #include <webpage.h>
 #include <version.h>
 
-// Pin Definitions 
+String machineStatus = "Idle";
+#define SDA_PIN 42
+#define SCL_PIN 41
+#define DRILL_RELAY_BIT 0
+
+// Pin Definitions
 #define z_axis_step 5
 #define z_axis_dir 6
 #define z_axis_home 7
-
+#define x_axis_step 9
+#define x_axis_dir 10
+#define x_axis_home 11
+#define start_button 4
 
 #include <Wire.h>
 #define TCA9554_ADDRESS 0x38
@@ -109,6 +113,17 @@ String getHTML() {
   html.replace("%STYLE%", String(DRILL_CONTROL_STYLE));
   html.replace("%VERSION%", String(CURRENT_FIRMWARE_VERSION));
   html.replace("%STARTBTN%", startButtonStatus);
+  
+  // Replace pin placeholders
+  html.replace("%ZAXIS_STEP%", String(z_axis_step));
+  html.replace("%ZAXIS_DIR%", String(z_axis_dir));
+  html.replace("%ZAXIS_HOME%", String(z_axis_home));
+  html.replace("%DRILLS%", "TCA9554 Relay 0");
+  html.replace("%XAXIS_STEP%", String(x_axis_step));
+  html.replace("%XAXIS_DIR%", String(x_axis_dir));
+  html.replace("%XAXIS_HOME%", String(x_axis_home));
+  html.replace("%START_BUTTON%", String(start_button));
+  
   return html;
 }
 // OTA update handler
@@ -391,6 +406,9 @@ void setup() {
   server.on("/status", []() {
     server.send(200, "text/plain", startButtonStatus);
   });
+  server.on("/machinestatus", []() {
+    server.send(200, "text/plain", machineStatus);
+  });
   server.onNotFound([]() {
     server.send(404, "text/plain", "Not found");
   });
@@ -466,13 +484,14 @@ void loop() {
 
   switch (drillState) {
     case DRILL_IDLE:
-      // Do nothing
+      machineStatus = "Idle";
       break;
 
     case DRILL_START:
+      machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Drills On";
       Serial.println("Start");
-  setRelay(DRILL_RELAY_BIT, true);
-  Serial.println("Drills On (relay)");
+      setRelay(DRILL_RELAY_BIT, true);
+      Serial.println("Drills On (relay)");
       zAxisStepper.setMaxSpeed(zAxisSpeedDown);
       zAxisStepper.setAcceleration(zAxisAccelerationDown);
       zAxisStepper.moveTo(zAxisMoveDownDistance);
@@ -480,6 +499,7 @@ void loop() {
       break;
 
     case DRILL_Z_DOWN:
+      machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Moving Down";
       zAxisStepper.run();
       if (zAxisStepper.distanceToGo() == 0) {
         zAxisStepper.moveTo(zAxisStepper.currentPosition() - 4000); // retract
@@ -488,22 +508,26 @@ void loop() {
       break;
 
     case DRILL_Z_RETRACT:
+      machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Moving Up";
       zAxisStepper.run();
       if (zAxisStepper.distanceToGo() == 0) {
-  setRelay(DRILL_RELAY_BIT, false);
-  Serial.println("Drills Off (relay)");
+        setRelay(DRILL_RELAY_BIT, false);
+        machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Drills Off";
+        Serial.println("Drills Off (relay)");
         drillDelayStart = millis();
         drillState = DRILL_Z_HOME_START;
       }
       break;
 
     case DRILL_Z_HOME_START:
+      machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Homing Z";
       if (millis() - drillDelayStart < drillDelayTime) break; // wait
       startZHoming();
       drillState = DRILL_Z_HOME_RUN;
       break;
 
     case DRILL_Z_HOME_RUN:
+      machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Homing Z";
       runZHoming();
       if (!zHomingActive) {
         drillState = DRILL_X_MOVE_START;
@@ -511,6 +535,7 @@ void loop() {
       break;
 
     case DRILL_X_MOVE_START:
+      machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Moving X";
       xAxisStepper.setMaxSpeed(xAxisSpeedDrilling);
       xAxisStepper.setAcceleration(xAxisAccelerationDrilling);
       xAxisStepper.moveTo((drillRowCounter + 1) * xAxisMoveDistance);
@@ -518,6 +543,7 @@ void loop() {
       break;
 
     case DRILL_X_MOVE_RUN:
+      machineStatus = "Row " + String(drillRowCounter + 1) + "/12 - Moving X";
       xAxisStepper.run();
       if (xAxisStepper.distanceToGo() == 0) {
         drillRowCounter++;
@@ -530,12 +556,14 @@ void loop() {
       break;
 
     case DRILL_FINISH_START:
+      machineStatus = "Returning Home";
       Serial.println("All rows drilled, returning to home position.");
       startZHoming();
       drillState = DRILL_FINISH_X_MOVE;
       break;
 
     case DRILL_FINISH_X_MOVE:
+      machineStatus = "Homing Z";
       runZHoming();
       if (!zHomingActive) {
         xAxisStepper.setMaxSpeed(xAxisSpeedHoming);
@@ -546,6 +574,7 @@ void loop() {
       break;
 
     case DRILL_FINISH_X_HOME:
+      machineStatus = "Homing X";
       xAxisStepper.run();
       if (xAxisStepper.distanceToGo() == 0) {
         startXHoming();
@@ -554,6 +583,7 @@ void loop() {
       break;
 
     case DRILL_DONE:
+      machineStatus = "Homing X";
       runXHoming();
       if (!xHomingActive) {
         drillState = DRILL_IDLE;
